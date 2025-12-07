@@ -23,11 +23,31 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+        await client.connect();
      
         const db = client.db("spark_decore");
         const serviceCollection = db.collection("services");
+        const userCollection = db.collection("users");
+        
+        
   
+        //  user releted api 
+         
+          // User Create in Database
+        app.post("/users", async (req, res) => {
+            const user = req.body;
+
+            const exist = await userCollection.findOne({ email: user.email });
+
+            if (exist) {
+                return res.send({ message: "user exist" });
+            }
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        });
+
+
+
      //Service related api
          app.get('/services',async(req,res)=>{
              const cursor = serviceCollection.find().sort({createdAt:-1}).limit(8);
