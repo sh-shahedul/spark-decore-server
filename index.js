@@ -49,8 +49,18 @@ async function run() {
 
 
      //Service related api
+
+      //  all service 
+       app.get('/services/all', async (req, res) => {
+       const cursor = serviceCollection .find().sort({ createdAt: -1 });
+       const result = await cursor.toArray();
+       res.send(result);
+         });
+
+
+        // latest service 
          app.get('/services',async(req,res)=>{
-             const cursor = serviceCollection.find().sort({createdAt:-1}).limit(8);
+             const cursor = serviceCollection.find().sort({createdAt:-1}).limit(6);
              const result= await cursor.toArray()
              res.send(result)
          })
