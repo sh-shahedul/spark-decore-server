@@ -6,9 +6,8 @@ const port =process.env.PORT ||3000
 // middle ware 
 app.use(cors())
 app.use(express.json())
-
-
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRETE);
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wbmojlp.mongodb.net/?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -110,7 +109,37 @@ async function run() {
         })
 
 
+      app.post('/create-checkout-session',async(req,res)=>{
+         const paymentInfo = req.body
+         const ammount = parseInt(paymentInfo.cost)
+         const session = await stripe.checkout.sessions.create({
+           line_items: [
+         {
+         price_data :{
+             currency : 'USD',
+             unit_amount : ammount,
+             product_data : {
+               name : paymentInfo.serviceName
+             }
+         },
+      
 
+        quantity: 1,
+            },
+         ],
+               customer_email : paymentInfo.userEmail,
+               mode: 'payment',
+               metadata : {
+                 serviceId :  paymentInfo.serviceId
+               },
+               success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success`,
+               cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
+         })
+
+
+         console.log(session);
+         res.send({ url:session.url })
+      })
 
 
 
