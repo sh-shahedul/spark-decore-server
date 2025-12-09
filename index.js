@@ -74,12 +74,40 @@ async function run() {
          })
             
       //  booking related api 
+       app.get('/bookings',async(req,res)=>{
+        const email = req.query.email
+         const query ={}
+         if(email){
+          query.userEmail = email
+         }
+
+         const cursor = bookingCollection.find(query).sort({bookingDate:-1})
+         const result = await cursor.toArray()
+         res.send(result)
+       })
+
+       app.get('/bookings/:id',async(req,res)=>{
+          const id = req.params.id
+          const query = {_id : new ObjectId(id)}
+          const result = await bookingCollection.findOne(query)
+          res.send(result)
+       })
+       
+
+
         app.post('/bookings',async(req,res)=>{
           const newBook = req.body
           const result = await bookingCollection.insertOne(newBook)
           res.send(result)
         })
 
+        //  delete booking 
+        app.delete('/bookings/:id',async(req,res)=>{
+          const id  =  req.params.id
+          const query = {_id :new ObjectId(id)}
+          const result = await bookingCollection.deleteOne(query)
+          res.send(result)
+        })
 
 
 
