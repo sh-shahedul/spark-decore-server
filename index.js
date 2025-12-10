@@ -41,13 +41,22 @@ async function run() {
         
   
         //  user releted api 
+         app.get('/users/email',async(req,res)=>{
+          const email = req.query.email
+               const query ={}
+             if(email){
+              query.email = email
+             }
+             const cursor = userCollection.findOne(query)
+             const result= await cursor
+             res.send(result)
+         })
+
          
           // User Create in Database
-        app.post("/users", async (req, res) => {
+        app.post("/users", async (req,res) => {
             const user = req.body;
-
             const exist = await userCollection.findOne({ email: user.email });
-
             if (exist) {
                 return res.send({ message: "user exist" });
             }
@@ -81,6 +90,20 @@ async function run() {
           const result = await serviceCollection.findOne(query)
           res.send(result)
          })
+
+        //  add service  
+        app.post ('/services',async(req,res)=>{
+            const newService = req.body
+            const result = await serviceCollection.insertOne(newService)
+            res.send(result)
+        })
+
+        app.delete('/services/:id',async(req,res)=>{
+          const id  = req.params.id
+          const query = {_id :new ObjectId(id)}
+          const result = await serviceCollection.deleteOne(query)
+          res.send(result)
+        })
             
       //  booking related api 
        app.get('/bookings',async(req,res)=>{
