@@ -2,7 +2,16 @@ const express = require('express')
 const cors = require('cors');
 const app = express()
 require('dotenv').config()
-const port =process.env.PORT ||3000
+const port =process.env.PORT || 3000
+
+const crypto = require("crypto");
+function generateTrackingId() {
+  const prefix = "PRCL"; // your brand prefix
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase(); // 6-char random hex
+
+  return `${prefix}-${date}-${random}`;
+}
 // middle ware 
 app.use(cors())
 app.use(express.json())
@@ -28,6 +37,7 @@ async function run() {
         const serviceCollection = db.collection("services");
         const userCollection = db.collection("users");
         const bookingCollection = db.collection("bookings")
+        const paymentCollection = db.collection("payments")
         
   
         //  user releted api 
@@ -110,7 +120,20 @@ async function run() {
 
 
 
-        
+      //  payemnt method  
+   app.get('/payments',async(req,res)=>{
+          const email = req.query.email
+         const query ={}
+         if(email){
+          query.customerEmail = email
+         }
+         const cursor = paymentCollection.find(query).sort({paidAt:-1})
+         const result = await cursor.toArray()
+         res.send(result)
+   })
+
+
+
       app.post('/create-checkout-session',async(req,res)=>{
          const paymentInfo = req.body
          const ammount = parseInt(paymentInfo.cost)
@@ -123,28 +146,86 @@ async function run() {
              product_data : {
                name : paymentInfo.serviceName
              }
-         },
-      
-
+         }, 
         quantity: 1,
             },
          ],
                customer_email : paymentInfo.userEmail,
                mode: 'payment',
                metadata : {
-                 serviceId :  paymentInfo.serviceId
+                 serviceId :  paymentInfo.serviceId,
+                 serviceName: paymentInfo.serviceName,
+                 bookingId: paymentInfo.bookingId
                },
-               success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success`,
+               success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
                cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
          })
-
-
          console.log(session);
          res.send({ url:session.url })
       })
 
 
-      
+      app.patch('/payment-success',async(req,res)=>{
+         const sessionId = req.query.session_id
+        //  console.log("session id",sessionId);
+
+
+        // duplicate handel  payment 
+        // const transactionId = session.payment_intent
+        // const query ={transactionId : transactionId}
+        // const paymentExist = await paymentCollection.findOne(query)
+        // console.log(paymentExist);
+        // if(paymentExist){
+        //   return res.send({
+        //     message: 'already exists',
+        //     transactionId,
+        //     // trackingId : paymentExist.trackingId
+        //   })
+        // }
+
+         const session = await stripe.checkout.sessions.retrieve(sessionId) 
+           console.log('session retrive' , session);
+           const trackingId =  generateTrackingId()
+          if(session.payment_status === 'paid'){
+           const id = session.metadata.bookingId;
+           const query = { _id : new ObjectId(id)}
+           const  update =  {
+            $set :{
+              bookingStatus : 'paid',
+              trackingId: trackingId
+            }
+           }
+           console.log(update,query)
+            const result = await bookingCollection.updateOne(query,update)
+
+           const payment = {
+            ammount: session.amount_total,
+            currency: session.currency,
+            customerEmail: session.customer_email,
+            serviceId: session.metadata.serviceId,
+            serviceName: session.metadata.serviceName,
+            transactionId: session.payment_intent,
+            paymentStatus: session.payment_status,
+            paidAt: new Date (),
+            // trackingId:trackingId
+           }
+           if(session.payment_status === 'paid'){
+               const resultpayment =  await paymentCollection.insertOne(payment)
+               res.send({success:true,
+                modifyService: result,
+                trackingId:trackingId,
+                transactionId:session.payment_intent,
+                paymentInfo: resultpayment
+              })
+           }
+
+
+          // return  res.send(result)
+          }
+         res.send({success:false})
+      })
+
+
 
 
     // Send a ping to confirm a successful connection
