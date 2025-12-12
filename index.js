@@ -61,6 +61,20 @@ async function run() {
       res.send(result);
     });
 
+
+//     // Get all active decorators
+//     app.get("/users/decorators", async (req, res) => {
+//   try {
+//     const decorators = await userCollection
+//       .find({ role: "decorator", status: "active" }) 
+//       .toArray();
+//     res.send(decorators);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send({ error: "Failed to fetch decorators" });
+//   }
+// });
+
     // User store in Database
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -75,15 +89,109 @@ async function run() {
     // Promote user to decorator
     app.patch("/users/:id/role", async (req, res) => {
   const { id } = req.params;
-
-  // Update role to decorator
   const filter = { _id: new ObjectId(id) };
+
   const updateDoc = {
-    $set: { role: "decorator" } // default promotion
+    $set: { role: "decorator" }
   };
 
   const result = await userCollection.updateOne(filter, updateDoc);
   res.send({ message: "User promoted to decorator", result });
+});
+
+  //  decorator enable /disable
+app.patch("/users/decorator-status/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status } = req.body; // active / disabled
+
+  const filter = { _id: new ObjectId(id) };
+  const update = {
+    $set: { status }
+  };
+
+  const result = await userCollection.updateOne(filter, update);
+  res.send(result);
+});
+
+//   // save decorator info 
+// app.post("/decorators", async (req, res) => {
+//   const { name, email, specialty, phone } = req.body;
+
+//   if (!email || !specialty || !phone) {
+//     return res.send({ success: false, message: "Missing fields" });
+//   }
+
+//   // Check user exists
+//   const user = await userCollection.findOne({ email });
+
+//   if (!user) {
+//     return res.send({ success: false, message: "User not found" });
+//   }
+
+//   const filter = { email };
+//   const updateDoc = {
+//     $set: {
+//       role: "decorator",
+//       name,        // separate field
+//       specialty,   // separate field
+//       phone,       // separate field
+//       status: "active",
+//     },
+//   };
+
+//   const result = await userCollection.updateOne(filter, updateDoc);
+
+//   res.send({
+//     success: true,
+//     message: "Decorator created successfully",
+//     result,
+//   });
+// });
+
+
+// Add decorator
+app.post("/decorators", async (req, res) => {
+  const { name, email, specialty, phone } = req.body;
+  if (!email || !specialty || !phone)
+    return res.send({ success: false, message: "Missing fields" });
+
+  const user = await userCollection.findOne({ email });
+  if (!user) return res.send({ success: false, message: "User not found" });
+
+  const result = await userCollection.updateOne(
+    { email },
+    {
+      $set: {
+        role: "decorator",
+        name,
+        specialty,
+        phone,
+        status: "active",
+        rating: 0,
+      },
+    }
+  );
+  res.send({ success: true, message: "Decorator created", result });
+});
+
+// Update decorator
+app.patch("/decorators/:id", async (req, res) => {
+  const { id } = req.params;
+  const { specialty, phone } = req.body;
+  const result = await userCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { specialty, phone } }
+  );
+  res.send({ success: true, modifiedCount: result.modifiedCount });
+});
+
+// Delete decorator
+app.delete("/decorators/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await userCollection.deleteOne({ _id: new ObjectId(id) });
+  if (result.deletedCount > 0)
+    res.send({ success: true, message: "Decorator deleted" });
+  else res.send({ success: false, message: "Decorator not found" });
 });
 
     //Service related api
@@ -116,7 +224,7 @@ async function run() {
       const id = req.params.id;
       const data = req.body;
 
-      // Optional: parse cost as float if provided
+      
       if (data.cost) data.cost = parseFloat(data.cost);
 
       const updateDoc = {
@@ -133,7 +241,7 @@ async function run() {
         updateDoc
       );
 
-      res.send(result); // result.modifiedCount will tell if update successful
+      res.send(result); 
     } catch (err) {
       console.error(err);
       res.status(500).send({ error: "Failed to update service" });
@@ -148,10 +256,7 @@ async function run() {
       res.send(result);
     });
 
-    // update service
-
-    
-
+   //delete service
     app.delete("/services/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -178,6 +283,7 @@ async function run() {
       const result = await bookingCollection.findOne(query);
       res.send(result);
     });
+   
 
     app.post("/bookings", async (req, res) => {
       const newBook = req.body;
@@ -213,6 +319,8 @@ async function run() {
     res.status(500).send({ error: "Failed to update booking" });
   }
 });
+
+
     //  delete booking
     app.delete("/bookings/:id", async (req, res) => {
       const id = req.params.id;
@@ -361,8 +469,9 @@ async function run() {
           { _id: new ObjectId(bookingId) },
           {
             $set: {
-              bookingStatus: "paid",
-              trackingId: trackingId,
+               paymentStatus: "paid",
+               bookingStatus: "paid",
+               trackingId: trackingId,
             },
           }
         );
