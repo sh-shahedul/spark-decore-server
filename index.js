@@ -113,41 +113,65 @@ app.patch("/users/decorator-status/:id", async (req, res) => {
   res.send(result);
 });
 
-//   // save decorator info 
-// app.post("/decorators", async (req, res) => {
-//   const { name, email, specialty, phone } = req.body;
+//=============================
+// Assign decorator to a booking
+// Assign decorator directly as fields (no object, no photo)
+app.patch("/bookings/:id/assign-decorator", async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const { decoratorId } = req.body;
 
-//   if (!email || !specialty || !phone) {
-//     return res.send({ success: false, message: "Missing fields" });
-//   }
+    if (!decoratorId) {
+      return res.status(400).send({ success: false, message: "Decorator ID required" });
+    }
 
-//   // Check user exists
-//   const user = await userCollection.findOne({ email });
+    // Fetch decorator info
+    const decorator = await userCollection.findOne({ 
+      _id: new ObjectId(decoratorId), 
+      role: "decorator", 
+      status: "active" 
+    });
 
-//   if (!user) {
-//     return res.send({ success: false, message: "User not found" });
-//   }
+    if (!decorator) {
+      return res.status(404).send({ success: false, message: "Decorator not found or inactive" });
+    }
 
-//   const filter = { email };
-//   const updateDoc = {
-//     $set: {
-//       role: "decorator",
-//       name,        // separate field
-//       specialty,   // separate field
-//       phone,       // separate field
-//       status: "active",
-//     },
-//   };
+    // Update booking with direct fields
+    const result = await bookingCollection.updateOne(
+      { _id: new ObjectId(bookingId) },
+      {
+        $set: {
+          assignedDecoratorId: decorator._id,
+          assignedDecoratorName: decorator.name,
+          assignedDecoratorEmail: decorator.email,
+          assignedDecoratorSpecialty: decorator.specialty,
+          decoratorAssigned: true,
+        },
+      }
+    );
 
-//   const result = await userCollection.updateOne(filter, updateDoc);
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ success: false, message: "Booking not found" });
+    }
 
-//   res.send({
-//     success: true,
-//     message: "Decorator created successfully",
-//     result,
-//   });
-// });
+    res.send({ success: true, message: "Decorator assigned successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
 
+//==========================
+// Get all active decorators
+app.get("/users/decorators/active", async (req, res) => {
+  try {
+    const decorators = await userCollection.find({ role: "decorator", status: "active" }).toArray();
+    res.send(decorators);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to fetch decorators" });
+  }
+});
 
 // Add decorator
 app.post("/decorators", async (req, res) => {
@@ -265,6 +289,7 @@ app.delete("/decorators/:id", async (req, res) => {
     });
 
     //  booking related api
+    //specific history
     app.get("/bookings", async (req, res) => {
       const email = req.query.email;
       const query = {};
@@ -277,20 +302,25 @@ app.delete("/decorators/:id", async (req, res) => {
       res.send(result);
     });
 
+  
+
+    //  singel booking 
     app.get("/bookings/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await bookingCollection.findOne(query);
       res.send(result);
     });
-   
+ 
 
+    
+  //  store booking 
     app.post("/bookings", async (req, res) => {
       const newBook = req.body;
       const result = await bookingCollection.insertOne(newBook);
       res.send(result);
     });
-      // update 
+      // update  booking
       app.patch("/bookings/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -522,6 +552,37 @@ app.delete("/decorators/:id", async (req, res) => {
         });
       }
     });
+
+
+     // Admin Revenue Route
+    app.get("/admin/revenue", async (req, res) => {
+      try {
+        const payments = await paymentCollection
+          .find({ paymentStatus: "paid" })
+          .sort({ paidAt: -1 })
+          .toArray();
+
+        // Total Revenue
+        const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+
+        // Monthly Revenue
+        const monthMap = {};
+        payments.forEach((p) => {
+          const month = new Date(p.paidAt).toLocaleString("default", { month: "short", year: "numeric" });
+          if (!monthMap[month]) monthMap[month] = 0;
+          monthMap[month] += p.amount;
+        });
+        const monthlyRevenue = Object.keys(monthMap).map((month) => ({ month, revenue: monthMap[month] }));
+
+        res.json({ totalRevenue, monthlyRevenue, payments });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to fetch revenue data" });
+      }
+    });
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
