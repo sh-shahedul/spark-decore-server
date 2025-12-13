@@ -363,6 +363,28 @@ app.delete("/decorators/:id", async (req, res) => {
 });
 
 
+app.patch("/bookings/:id/update-decorator-status", async (req, res) => {
+  const { status, decoratorEmail } = req.body;
+  const STATUS_FLOW = ["assigned","planning","materials-prepared","on-the-way","setup-in-progress","completed"];
+
+  const booking = await bookingCollection.findOne({
+    _id: new ObjectId(req.params.id),
+    assignedDecoratorEmail: decoratorEmail
+  });
+  if (!booking) return res.status(404).send({ message: "Not found" });
+
+  const currentIndex = STATUS_FLOW.indexOf(booking.assignedDecoatorStatus);
+  if (STATUS_FLOW[currentIndex+1] !== status)
+    return res.status(400).send({ message: `Next allowed: ${STATUS_FLOW[currentIndex+1]}` });
+
+  await bookingCollection.updateOne(
+    { _id: new ObjectId(req.params.id) },
+    { $set: { assignedDecoatorStatus: status } }
+  );
+
+  res.send({ success: true, message: "Status updated" });
+});
+
 
 
     //  delete booking
