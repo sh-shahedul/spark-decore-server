@@ -146,6 +146,7 @@ app.patch("/bookings/:id/assign-decorator", async (req, res) => {
           assignedDecoratorEmail: decorator.email,
           assignedDecoratorSpecialty: decorator.specialty,
           decoratorAssigned: true,
+          assignedDecoatorStatus:'assigned',
         },
       }
     );
@@ -301,7 +302,18 @@ app.delete("/decorators/:id", async (req, res) => {
       const result = await cursor.toArray();
       res.send(result);
     });
+   //my assign service (decorator)
+    app.get("/bookings/assignDecoratore", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.assignedDecoratorEmail = email;
+      }
 
+      const cursor = bookingCollection.find(query).sort({ bookingDate: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
   
 
     //  singel booking 
@@ -321,7 +333,7 @@ app.delete("/decorators/:id", async (req, res) => {
       res.send(result);
     });
       // update  booking
-      app.patch("/bookings/:id", async (req, res) => {
+  app.patch("/bookings/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const { serviceType, bookingDate, bookingTime, location } = req.body;
@@ -349,6 +361,8 @@ app.delete("/decorators/:id", async (req, res) => {
     res.status(500).send({ error: "Failed to update booking" });
   }
 });
+
+
 
 
     //  delete booking
