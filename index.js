@@ -324,7 +324,28 @@ app.delete("/decorators/:id", async (req, res) => {
       res.send(result);
     });
  
+    // Today's schedule for decorator
+app.get("/bookings/decorator/today", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) {
+      return res.status(400).send({ message: "Decorator email required" });
+    }
 
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const result = await bookingCollection.find({
+      assignedDecoratorEmail: email,
+      bookingDate: today,
+      decoratorAssigned: true,
+    }).sort({ bookingTime: 1 }).toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to load today's schedule" });
+  }
+});
     
   //  store booking 
     app.post("/bookings", async (req, res) => {
