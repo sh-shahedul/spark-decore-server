@@ -151,33 +151,6 @@ async function run() {
     res.status(500).send({ error: "Failed to fetch top decorators" });
   }
 });
-//Fetch current user profile
-app.get("/users/profile", verifyFirebaseToken, async (req, res) => {
-  try {
-    const email = req.decoded_email;
-    const user = await userCollection.findOne({ email });
-    if (!user) return res.status(404).send({ message: "User not found" });
-    res.send(user);
-  } catch (err) {
-    res.status(500).send({ message: err.message });
-  }
-});
- // update profile
-app.patch("/users/profile", verifyFirebaseToken, async (req, res) => {
-  try {
-    const email = req.decoded_email;
-    const { displayName, photoURL } = req.body;
-
-    const updateDoc = { $set: {} };
-    if (displayName) updateDoc.$set.displayName = displayName;
-    if (photoURL) updateDoc.$set.photoURL = photoURL;
-
-    const result = await userCollection.updateOne({ email }, updateDoc);
-    res.send({ success: true, modifiedCount: result.modifiedCount });
-  } catch (err) {
-    res.status(500).send({ message: err.message });
-  }
-});
 
 
     // User store in Database
@@ -190,8 +163,38 @@ app.patch("/users/profile", verifyFirebaseToken, async (req, res) => {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
-    
+ 
+    // Get logged in user profile
+app.get("/users/profile", verifyFirebaseToken, async (req, res) => {
+  const email = req.decoded_email;
 
+  const user = await userCollection.findOne({ email });
+
+  if (!user) {
+    return res.status(404).send({ message: "User not found" });
+  }
+
+  res.send(user);
+});
+
+// Update logged in user profile
+app.patch("/users/profile", verifyFirebaseToken, async (req, res) => {
+  const email = req.decoded_email;
+  const { displayName, photoURL } = req.body;
+
+  const result = await userCollection.updateOne(
+    { email },
+    {
+      $set: {
+        displayName,
+        photoURL,
+        updatedAt: new Date(),
+      },
+    }
+  );
+
+  res.send(result);
+});
 
     // make user to decorator
     app.patch("/users/:id/role", async (req, res) => {
@@ -222,7 +225,7 @@ app.patch("/users/decorator-status/:id", verifyFirebaseToken, async (req, res) =
 
 //=============================
 // Assign decorator to a booking
-app.patch("/bookings/:id/assign-decorator",verifyFirebaseToken,verifyAdmin, async (req, res) => {
+app.patch("/bookings/:id/assign-decorator",verifyFirebaseToken, async (req, res) => {
   try {
     const bookingId = req.params.id;
     const { decoratorId } = req.body;
@@ -270,7 +273,7 @@ app.patch("/bookings/:id/assign-decorator",verifyFirebaseToken,verifyAdmin, asyn
 
 //==========================
 // Get all active decorators
-app.get("/users/decorators/active", verifyFirebaseToken,verifyAdmin, async (req, res) => {
+app.get("/users/decorators/active", verifyFirebaseToken, async (req, res) => {
   try {
     const decorators = await userCollection.find({ role: "decorator", status: "active" }).toArray();
     res.send(decorators);
@@ -396,15 +399,15 @@ app.delete("/decorators/:id", async (req, res) => {
 
     //  booking related api
     //specific 
-    app.get("/bookings",verifyFirebaseToken, verifyUser, async (req, res) => {
+    app.get("/bookings",verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
         query.userEmail = email;
         //check email address 
-        if(email !==req.decoded_email){
-          return res.status(403).send({message:'forbidden access'})
-        }
+        // if(email !==req.decoded_email){
+        //   return res.status(403).send({message:'forbidden access'})
+        // }
       }
 
       const cursor = bookingCollection.find(query).sort({ bookingDate: -1 });
@@ -430,7 +433,7 @@ app.delete("/decorators/:id", async (req, res) => {
   
 
     //  singel booking 
-    app.get("/bookings/:id", verifyFirebaseToken,verifyUser, async (req, res) => {
+    app.get("/bookings/:id", verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await bookingCollection.findOne(query);
