@@ -406,6 +406,8 @@ app.delete("/decorators/:id", async (req, res) => {
           service_category: data.service_category,
           cost: data.cost,
           unit: data.unit,
+          description: data.description,  
+          image: data.image,               
         },
       };
 
