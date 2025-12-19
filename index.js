@@ -8,7 +8,11 @@ const port = process.env.PORT || 3000;
 const crypto = require("crypto");
 const admin = require("firebase-admin");
 
-const serviceAccount = require("./firebase-admin-sdk-sparkdecore.json");
+// const serviceAccount = require("./firebase-admin-sdk-sparkdecore.json");
+// const serviceAccount = require("./firebase-admin-key.json");
+
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
+const serviceAccount = JSON.parse(decoded);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -69,7 +73,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // collection  db
     const db = client.db("spark_decore");
     const serviceCollection = db.collection("services");
@@ -114,6 +118,10 @@ async function run() {
 
     //create index
     await paymentCollection.createIndex({ transactionId: 1 }, { unique: true });
+
+    app.get("/", (req, res) => {
+     res.send("spark decore is runnung");
+     });
 
     //  user releted api
 
@@ -821,10 +829,10 @@ app.get("/admin/analytics", verifyFirebaseToken,verifyAdmin, async (req, res) =>
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -832,9 +840,7 @@ app.get("/admin/analytics", verifyFirebaseToken,verifyAdmin, async (req, res) =>
 }
 run().catch(console.dir);
 
-app.get("/", (req, res) => {
-  res.send("spark decore is runnung");
-});
+
 
 app.listen(port, () => {
   console.log(`spark decore is runnungon port ${port}`);
