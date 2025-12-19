@@ -164,7 +164,21 @@ async function run() {
       res.send(result);
     });
  
-    // Get logged in user profile
+
+  //calulate  profile completition
+const calculateProfileCompletion = (user) => {
+  let percentage = 0;
+
+  if (user.displayName) percentage += 20;
+  if (user.photoURL) percentage += 20;
+  if (user.location) percentage += 15;
+  if (user.phoneNumber) percentage += 15;
+  if (user.bioData) percentage += 30;
+
+  return percentage;
+};
+
+// Get logged in user profile
 app.get("/users/profile", verifyFirebaseToken, async (req, res) => {
   const email = req.decoded_email;
 
@@ -174,26 +188,52 @@ app.get("/users/profile", verifyFirebaseToken, async (req, res) => {
     return res.status(404).send({ message: "User not found" });
   }
 
-  res.send(user);
+  const profileCompletion = calculateProfileCompletion(user);
+
+  res.send({
+    ...user,
+    profileCompletion,
+  });
 });
 
-// Update logged in user profile
+  // Update logged in user profile
 app.patch("/users/profile", verifyFirebaseToken, async (req, res) => {
   const email = req.decoded_email;
-  const { displayName, photoURL } = req.body;
+
+  const {
+    displayName,
+    photoURL,
+    location,
+    phoneNumber,
+    bioData,
+  } = req.body;
+
+  const updatedUser = {
+    displayName,
+    photoURL,
+    location,
+    phoneNumber,
+    bioData,
+    updatedAt: new Date(),
+  };
+
+  const profileCompletion = calculateProfileCompletion(updatedUser);
 
   const result = await userCollection.updateOne(
     { email },
     {
       $set: {
-        displayName,
-        photoURL,
-        updatedAt: new Date(),
+        ...updatedUser,
+        profileCompletion,
       },
     }
   );
 
-  res.send(result);
+  res.send({
+    success: true,
+    profileCompletion,
+    result,
+  });
 });
 
     // make user to decorator
@@ -338,7 +378,7 @@ app.delete("/decorators/:id", async (req, res) => {
 
     // latest service
     app.get("/services", async (req, res) => {
-      const cursor = serviceCollection.find().sort({ createdAt: -1 }).limit(6);
+      const cursor = serviceCollection.find().sort({ createdAt: -1 }).limit(8);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -470,9 +510,6 @@ app.delete("/decorators/:id", async (req, res) => {
     res.status(500).send({ message: "Failed to load today's schedule" });
   }
 });
-
-
-
 
 // Decorator Earnings summary
 app.get("/bookings/decorator/earnings-detail", verifyFirebaseToken,verifyDecorator, async (req, res) => {
@@ -626,65 +663,6 @@ app.patch("/bookings/:id/update-decorator-status",verifyFirebaseToken, verifyDec
       // console.log(session);
       res.send({ url: session.url });
     });
-
-    // app.patch('/payment-success',async(req,res)=>{
-    //    const sessionId = req.query.session_id
-    //   //  console.log("session id",sessionId);
-
-    //   // duplicate handel  payment
-
-    //    const session = await stripe.checkout.sessions.retrieve(sessionId)
-    //     //  console.log('session retrive' , session);
-    //      const trackingId =  generateTrackingId()
-    //     if(session.payment_status === 'paid'){
-    //      const id = session.metadata.bookingId;
-    //      const query = { _id : new ObjectId(id)}
-    //      const  update =  {
-    //       $set :{
-    //         bookingStatus : 'paid',
-    //         trackingId: trackingId
-    //       }
-    //      }
-    //     //  console.log(update,query)
-    //       const result = await bookingCollection.updateOne(query,update)
-    //        //=========
-    //         const transactionId = session.payment_intent
-    //   const query2 ={transactionId : transactionId}
-    //   const paymentExist = await paymentCollection.findOne(query2)
-    //   // console.log(paymentExist);
-    //   if(paymentExist){
-    //     return res.send({
-    //       message: 'already exists',
-    //       transactionId,
-    //       trackingId : paymentExist.trackingId
-    //     })
-    //   }
-    //   //========
-    //      const payment = {
-    //       ammount: session.amount_total,
-    //       currency: session.currency,
-    //       customerEmail: session.customer_email,
-    //       serviceId: session.metadata.serviceId,
-    //       serviceName: session.metadata.serviceName,
-    //       transactionId: session.payment_intent,
-    //       paymentStatus: session.payment_status,
-    //       paidAt: new Date (),
-    //       // trackingId:trackingId
-    //      }
-    //      if(session.payment_status === 'paid'){
-    //         //  const resultpayment =  await paymentCollection.insertOne(payment)
-    //         //  res.send({success:true,
-    //         //   modifyService: result,
-    //         //   trackingId:trackingId,
-    //         //   transactionId:session.payment_intent,
-    //         //   paymentInfo: resultpayment
-    //         // })
-    //      }
-
-    //     // return  res.send(result)
-    //     }
-    //    res.send({success:false})
-    // })
 
     app.patch("/payment-success",verifyFirebaseToken, async (req, res) => {
       try {
