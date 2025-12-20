@@ -1,9 +1,11 @@
+// const cron = require('node-cron');
 const express = require("express");
 const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 3000;
-
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRETE);
 //create traniction
 const crypto = require("crypto");
 const admin = require("firebase-admin");
@@ -25,13 +27,19 @@ function generateTrackingId() {
 }
 
 // middle ware
-app.use(cors());
+// app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173","https://spark-decore.netlify.app"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 //==========================
  //verify firebase token JWT
 const verifyFirebaseToken = async (req,res,next)=>{
-    console.log('headers in the middleware', req.headers.authorization);
+    // console.log('headers in the middleware', req.headers.authorization);
 
      if(!req.headers.authorization){
         return res.status(401).send({message:'Unauthorized Access'})
@@ -43,7 +51,7 @@ const verifyFirebaseToken = async (req,res,next)=>{
 
       try{
       const decoded = await admin.auth().verifyIdToken(token)
-      console.log('after decoded in the token',decoded)
+      // console.log('after decoded in the token',decoded)
       req.decoded_email = decoded.email
       next() 
       }
@@ -56,9 +64,9 @@ const verifyFirebaseToken = async (req,res,next)=>{
 
 
 
+
  //===================
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const stripe = require("stripe")(process.env.STRIPE_SECRETE);
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wbmojlp.mongodb.net/?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -117,12 +125,9 @@ async function run() {
 
 
     //create index
-    await paymentCollection.createIndex({ transactionId: 1 }, { unique: true });
+    // await paymentCollection.createIndex({ transactionId: 1 }, { unique: true });
 
-    app.get("/", (req, res) => {
-     res.send("spark decore is runnung");
-     });
-
+    
     //  user releted api
 
     app.get('/users',async(req,res)=>{
@@ -646,12 +651,12 @@ app.patch("/bookings/:id/update-decorator-status",verifyFirebaseToken, verifyDec
 
     app.post("/create-checkout-session",verifyFirebaseToken, async (req, res) => {
       const paymentInfo = req.body;
-      const ammount = parseInt(paymentInfo.cost);
+      const ammount = parseInt(paymentInfo.cost)*100;
       const session = await stripe.checkout.sessions.create({
         line_items: [
           {
             price_data: {
-              currency: "USD",
+              currency: "BDT",
               unit_amount: ammount,
               product_data: {
                 name: paymentInfo.serviceName,
@@ -722,7 +727,7 @@ app.patch("/bookings/:id/update-decorator-status",verifyFirebaseToken, verifyDec
 
         // Create payment document
         const payment = {
-          amount: session.amount_total,
+          amount: session.amount_total / 100,
           currency: session.currency,
           customerEmail: session.customer_email,
           serviceId: session.metadata.serviceId,
@@ -825,7 +830,7 @@ app.get("/admin/analytics", verifyFirebaseToken,verifyAdmin, async (req, res) =>
   }
 });
 
-
+  
 
 
     // Send a ping to confirm a successful connection
@@ -840,6 +845,13 @@ app.get("/admin/analytics", verifyFirebaseToken,verifyAdmin, async (req, res) =>
 }
 run().catch(console.dir);
 
+// cron.schedule('* * * * *', () => {
+//   console.log('running a task every minute');
+// });
+
+ app.get("/", (req, res) => {
+     res.send("spark decore is runnung");
+     });
 
 
 app.listen(port, () => {
